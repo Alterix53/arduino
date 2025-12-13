@@ -1,0 +1,1169 @@
+[
+    {
+        "id": "tab_dashboard",
+        "type": "tab",
+        "label": "SmartDoor Dashboard",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "d231b253f1f1d894",
+        "type": "junction",
+        "z": "tab_dashboard",
+        "x": 600,
+        "y": 560,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_chat_input_groq",
+        "type": "ui_template",
+        "z": "tab_dashboard",
+        "group": "group_chatbot_ai",
+        "name": "Ô Nhập Liệu",
+        "order": 2,
+        "width": 6,
+        "height": 2,
+        "format": "<div layout=\"row\" layout-align=\"start center\" style=\"margin-top: 10px;\">\n    <md-input-container md-no-float class=\"md-block\" flex style=\"margin-bottom: 0;\">\n        <input id=\"chat-input\" ng-model=\"user_input\" ng-keyup=\"$event.keyCode == 13 && sendMsg()\" placeholder=\"Nhập yêu cầu của bạn ở đây...\" style=\"color:#333;\">\n    </md-input-container>\n    <md-button class=\"md-raised md-primary\" ng-click=\"sendMsg()\" style=\"min-width: 40px; margin-left: 5px; background-color: #f55036 !important;\">\n        Gửi\n    </md-button>\n</div>\n<script>\n    (function(scope) {\n        scope.sendMsg = function() {\n            if (!scope.user_input || scope.user_input.trim() === \"\") return;\n            scope.send({payload: scope.user_input});\n            scope.user_input = \"\";\n        }\n    })(scope);\n</script>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 140,
+        "y": 640,
+        "wires": [
+            [
+                "func_prepare_groq_v17"
+            ]
+        ]
+    },
+    {
+        "id": "func_prepare_groq_v17",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Chuẩn bị cho Groq (Model Mới)",
+        "func": "// --- API KEY GROQ CỦA BẠN ---\nvar API_KEY = \"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\";\n// -----------------------------\n\n// 1. Lấy dữ liệu cảm biến hiện tại\nvar temp = flow.get(\"current_temp\") || 0;\nvar humid = flow.get(\"current_humid\") || 0;\nvar door = flow.get(\"cfg_door\");\nvar doorText = (door === \"OPEN\" || door === true) ? \"ĐANG MỞ\" : \"ĐANG KHÓA\";\nvar userQuestion = msg.payload;\n\n// 2. Hiển thị câu hỏi\nvar history = flow.get(\"chat_history\") || [];\nhistory.push({ text: userQuestion, align: \"right\", bg: \"#f55036\", color: \"white\" });\nif (history.length > 20) history = history.slice(history.length - 20);\nflow.set(\"chat_history\", history);\nnode.send([null, { payload: history }]); \n\n// 3. Tạo Prompt\nvar systemPrompt = `\nBạn là trợ lý ảo SmartHome.\nTrạng thái nhà: Nhiệt độ ${temp}°C, Độ ẩm ${humid}%, Cửa chính ${doorText}.\n\nNhiệm vụ:\n1. Trả lời câu hỏi người dùng ngắn gọn.\n2. Nếu người dùng ra lệnh, hãy thêm mã lệnh ở CUỐI câu trả lời: [CMD:TEN_LENH].\n   - Các lệnh: OPEN, CLOSE, BUZZER_ON, BUZZER_OFF.\n   - Ví dụ: \"Ok, mở cửa ngay. [CMD:OPEN]\"\n`;\n\n// 4. Cấu hình Request (Dùng model mới nhất: llama-3.3-70b-versatile)\nmsg.url = \"https://api.groq.com/openai/v1/chat/completions\";\nmsg.headers = {\n    \"Content-Type\": \"application/json\",\n    \"Authorization\": \"Bearer \" + API_KEY\n};\n\nmsg.payload = {\n    \"model\": \"llama-3.3-70b-versatile\",\n    \"messages\": [\n        { \"role\": \"system\", \"content\": systemPrompt },\n        { \"role\": \"user\", \"content\": userQuestion }\n    ],\n    \"temperature\": 0.7\n};\n\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 640,
+        "wires": [
+            [
+                "req_groq_api_v17"
+            ],
+            [
+                "ui_chat_display_groq"
+            ]
+        ]
+    },
+    {
+        "id": "req_groq_api_v17",
+        "type": "http request",
+        "z": "tab_dashboard",
+        "name": "GỌI GROQ API",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 650,
+        "y": 640,
+        "wires": [
+            [
+                "func_process_groq_v17"
+            ]
+        ]
+    },
+    {
+        "id": "func_process_groq_v17",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Xử lý phản hồi Groq",
+        "func": "var history = flow.get(\"chat_history\") || [];\nvar aiText = \"\";\n\n// 1. Kiểm tra lỗi\nif (msg.statusCode !== 200) {\n    var errMsg = (msg.payload && msg.payload.error) ? msg.payload.error.message : \"Unknown Error\";\n    aiText = \"Lỗi Groq (\" + msg.statusCode + \"): \" + errMsg;\n} \nelse if (msg.payload && msg.payload.choices && msg.payload.choices.length > 0) {\n    aiText = msg.payload.choices[0].message.content;\n} else {\n    aiText = \"Groq không trả lời.\";\n}\n\n// 2. Tách lệnh điều khiển\nvar command = null;\nvar displayText = aiText;\nvar cmdMatch = aiText.match(/\\[CMD:([A-Z_]+)\\]/);\nif (cmdMatch) {\n    command = { payload: cmdMatch[1] };\n    displayText = aiText.replace(cmdMatch[0], \"\").trim();\n}\n\n// 3. Lưu lịch sử\nhistory.push({ text: displayText, align: \"left\", bg: \"#f0f0f0\", color: \"black\" });\nif (history.length > 20) history = history.slice(history.length - 20);\nflow.set(\"chat_history\", history);\n\nreturn [command, { payload: history }];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 640,
+        "wires": [
+            [
+                "mqtt_out_chatbot"
+            ],
+            [
+                "ui_chat_display_groq"
+            ]
+        ]
+    },
+    {
+        "id": "ui_chat_display_groq",
+        "type": "ui_template",
+        "z": "tab_dashboard",
+        "group": "group_chatbot_ai",
+        "name": "Màn hình Chat",
+        "order": 1,
+        "width": 6,
+        "height": 5,
+        "format": "<div style=\"height: 100%; overflow-y: auto; display: flex; flex-direction: column-reverse; padding: 10px;\">\n    <div ng-repeat=\"msg in msg.payload | orderBy:'-':true track by $index\">\n        <div style=\"display: flex; flex-direction: column; align-items: {{msg.align == 'right' ? 'flex-end' : 'flex-start'}};\">\n            <div style=\"margin: 4px; padding: 8px 12px; border-radius: 15px; background-color: {{msg.bg}}; color: {{msg.color}}; max-width: 80%; box-shadow: 1px 1px 2px rgba(0,0,0,0.1); font-size: 14px; white-space: pre-wrap;\">\n                {{msg.text}}\n            </div>\n        </div>\n    </div>\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1080,
+        "y": 680,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "mqtt_out_chatbot",
+        "type": "mqtt out",
+        "z": "tab_dashboard",
+        "name": "Chatbot Gửi Lệnh",
+        "topic": "smartdoor/nhom10/cmd",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "d6797cad3fe0fda9",
+        "x": 1110,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "chatbot_save_data_new",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Chatbot Lưu Data Sensor",
+        "func": "if (msg.topic.includes(\"temperature\")) {\n    flow.set(\"current_temp\", msg.payload);\n}\nif (msg.topic.includes(\"humidity\")) {\n    flow.set(\"current_humid\", msg.payload);\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1250,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "link_temp_to_chat",
+        "type": "link in",
+        "z": "tab_dashboard",
+        "name": "Link Temp",
+        "links": [
+            "b39cb9f2be80aeb4"
+        ],
+        "x": 1015,
+        "y": 420,
+        "wires": [
+            [
+                "chatbot_save_data_new"
+            ]
+        ]
+    },
+    {
+        "id": "link_hum_to_chat",
+        "type": "link in",
+        "z": "tab_dashboard",
+        "name": "Link Hum",
+        "links": [],
+        "x": 1065,
+        "y": 480,
+        "wires": [
+            [
+                "chatbot_save_data_new"
+            ]
+        ]
+    },
+    {
+        "id": "link_out_temp",
+        "type": "link out",
+        "z": "tab_dashboard",
+        "name": "Out Temp",
+        "mode": "link",
+        "links": [
+            "link_temp_to_chat",
+            "link_temp_to_email_v19"
+        ],
+        "x": 905,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "link_out_hum",
+        "type": "link out",
+        "z": "tab_dashboard",
+        "name": "Out Hum",
+        "mode": "link",
+        "links": [
+            "link_hum_to_chat"
+        ],
+        "x": 975,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "switch_door",
+        "type": "ui_switch",
+        "z": "tab_dashboard",
+        "name": "Mở/Khóa cửa",
+        "label": "Mở/Khóa cửa",
+        "tooltip": "",
+        "group": "7c97dfb42a4424c9",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "door",
+        "topicType": "str",
+        "style": "",
+        "onvalue": "OPEN",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "CLOSE",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 120,
+        "y": 100,
+        "wires": [
+            [
+                "f84f9d631a204e42"
+            ]
+        ]
+    },
+    {
+        "id": "switch_buzzer",
+        "type": "ui_switch",
+        "z": "tab_dashboard",
+        "name": "Bật/Tắt buzzer",
+        "label": "Bật/Tắt buzzer",
+        "tooltip": "",
+        "group": "7c97dfb42a4424c9",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "buzzer",
+        "topicType": "str",
+        "style": "",
+        "onvalue": "BUZZER_ON",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "BUZZER_OFF",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 120,
+        "y": 160,
+        "wires": [
+            [
+                "c9958700fe75e998"
+            ]
+        ]
+    },
+    {
+        "id": "slider_temp",
+        "type": "ui_slider",
+        "z": "tab_dashboard",
+        "name": "Nhiệt độ cảnh báo",
+        "label": "Nhiệt độ cảnh báo",
+        "tooltip": "{{value}}",
+        "group": "f0fc630b4eefb42e",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "outs": "all",
+        "topic": "temp_alert",
+        "topicType": "str",
+        "min": 0,
+        "max": "70",
+        "step": 1,
+        "className": "",
+        "x": 130,
+        "y": 320,
+        "wires": [
+            [
+                "9f16df6ead0deedf"
+            ]
+        ]
+    },
+    {
+        "id": "button_control",
+        "type": "ui_button",
+        "z": "tab_dashboard",
+        "name": "ĐIỀU CHỈNH",
+        "group": "f0fc630b4eefb42e",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "label": "ĐIỀU CHỈNH",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "#0288D1",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "adjust",
+        "topicType": "str",
+        "x": 110,
+        "y": 500,
+        "wires": [
+            [
+                "efd24a536b3df415"
+            ]
+        ]
+    },
+    {
+        "id": "date_picker",
+        "type": "ui_date_picker",
+        "z": "tab_dashboard",
+        "name": "Chọn ngày",
+        "label": "Chọn ngày để hiển thị thông tin",
+        "group": "2450d44f0842d1dc",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "topic": "date",
+        "topicType": "str",
+        "className": "",
+        "x": 590,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dropdown_action",
+        "type": "ui_dropdown",
+        "z": "tab_dashboard",
+        "name": "Hành động",
+        "label": "Hành động",
+        "tooltip": "",
+        "place": "Tất cả",
+        "group": "2450d44f0842d1dc",
+        "order": 4,
+        "width": 5,
+        "height": 2,
+        "passthru": true,
+        "multiple": false,
+        "options": [
+            {
+                "label": "Tất cả",
+                "value": "all",
+                "type": "str"
+            },
+            {
+                "label": "Mở cửa",
+                "value": "open",
+                "type": "str"
+            },
+            {
+                "label": "Khóa cửa",
+                "value": "close",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "action",
+        "topicType": "str",
+        "className": "",
+        "x": 590,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dropdown_status",
+        "type": "ui_dropdown",
+        "z": "tab_dashboard",
+        "name": "Trạng thái",
+        "label": "Trạng thái",
+        "tooltip": "",
+        "place": "Tất cả",
+        "group": "2450d44f0842d1dc",
+        "order": 5,
+        "width": 4,
+        "height": 2,
+        "passthru": true,
+        "multiple": false,
+        "options": [
+            {
+                "label": "Tất cả",
+                "value": "all",
+                "type": "str"
+            },
+            {
+                "label": "Thành công",
+                "value": "success",
+                "type": "str"
+            },
+            {
+                "label": "Thất bại",
+                "value": "failed",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "status",
+        "topicType": "str",
+        "className": "",
+        "x": 640,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "button_apply",
+        "type": "ui_button",
+        "z": "tab_dashboard",
+        "name": "ÁP DỤNG",
+        "group": "2450d44f0842d1dc",
+        "order": 6,
+        "width": 3,
+        "height": 1,
+        "passthru": false,
+        "label": "ÁP DỤNG",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "#0288D1",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "apply",
+        "topicType": "str",
+        "x": 570,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "text_door",
+        "type": "ui_text",
+        "z": "tab_dashboard",
+        "group": "32eb1cee9a13bf06",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "Trạng thái cửa",
+        "label": "Trạng thái cửa:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1300,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "text_sensor",
+        "type": "ui_text",
+        "z": "tab_dashboard",
+        "group": "32eb1cee9a13bf06",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "name": "Trạng thái cảm biến",
+        "label": "Trạng thái cảm biến nhiệt độ/độ ẩm",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1280,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "text_buzzer",
+        "type": "ui_text",
+        "z": "tab_dashboard",
+        "group": "32eb1cee9a13bf06",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "name": "Trạng thái buzzer",
+        "label": "Trạng thái buzzer:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1270,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "gauge_temp",
+        "type": "ui_gauge",
+        "z": "tab_dashboard",
+        "name": "Nhiệt độ hiện tại",
+        "group": "32eb1cee9a13bf06",
+        "order": 4,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Nhiệt độ hiện tại",
+        "label": "°C",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "70",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "23",
+        "seg2": "46",
+        "diff": false,
+        "className": "",
+        "x": 1300,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "fdd3b7fdb6131409",
+        "type": "ui_table",
+        "z": "tab_dashboard",
+        "group": "2450d44f0842d1dc",
+        "name": "",
+        "order": 8,
+        "width": 11,
+        "height": 5,
+        "columns": [],
+        "outputs": 0,
+        "cts": false,
+        "x": 910,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "3174c335177b026d",
+        "type": "inject",
+        "z": "tab_dashboard",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 530,
+        "y": 580,
+        "wires": [
+            [
+                "3e57098ffa1a725d"
+            ]
+        ]
+    },
+    {
+        "id": "3e57098ffa1a725d",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "function 2",
+        "func": "// Mô phỏng dữ liệu lịch sử hành động\nmsg.payload = [\n    { \"Thời gian\": \"00:03:56\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:30:18\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:35:55\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:38:10\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:42:00\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:54:21\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thất bại\" },\n    { \"Thời gian\": \"10:56:09\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thất bại\" }\n];\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 560,
+        "wires": [
+            [
+                "fdd3b7fdb6131409"
+            ]
+        ]
+    },
+    {
+        "id": "5256654dfb78fd47",
+        "type": "ui_gauge",
+        "z": "tab_dashboard",
+        "name": "",
+        "group": "2450d44f0842d1dc",
+        "order": 2,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Nhiệt độ trung bình",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 10,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 570,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "f99d213ba86cbad4",
+        "type": "ui_gauge",
+        "z": "tab_dashboard",
+        "name": "",
+        "group": "2450d44f0842d1dc",
+        "order": 1,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Độ ẩm trung bình",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 10,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 590,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "a72e5c79cb23fe25",
+        "type": "ui_switch",
+        "z": "tab_dashboard",
+        "name": "",
+        "label": "Bật/Tắt cảm biến độ ẩm/nhiệt độ",
+        "tooltip": "",
+        "group": "7c97dfb42a4424c9",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 150,
+        "y": 260,
+        "wires": [
+            [
+                "2f86523ff32bf334"
+            ]
+        ]
+    },
+    {
+        "id": "b39cb9f2be80aeb4",
+        "type": "mqtt in",
+        "z": "tab_dashboard",
+        "name": "",
+        "topic": "smartdoor/nhom10/temperature",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 910,
+        "y": 320,
+        "wires": [
+            [
+                "gauge_temp"
+            ]
+        ]
+    },
+    {
+        "id": "gauge_humid",
+        "type": "ui_gauge",
+        "z": "tab_dashboard",
+        "name": "",
+        "group": "32eb1cee9a13bf06",
+        "order": 5,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Độ ẩm hiện tại",
+        "label": "%",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "100",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1300,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "mqtt_in_hum",
+        "type": "mqtt in",
+        "z": "tab_dashboard",
+        "name": "",
+        "topic": "smartdoor/nhom10/humidity",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 880,
+        "y": 380,
+        "wires": [
+            [
+                "gauge_humid"
+            ]
+        ]
+    },
+    {
+        "id": "2f86523ff32bf334",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Lưu cảm biến",
+        "func": "// Lưu trạng thái cảm biến vào biến tạm 'cfg_sensor'\nflow.set(\"cfg_sensor\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9f16df6ead0deedf",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Lưu nhiệt độ",
+        "func": "// Lưu nhiệt độ vào biến tạm 'cfg_temp'\nflow.set(\"cfg_temp\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f84f9d631a204e42",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Lưu cửa",
+        "func": "// Lưu trạng thái cửa vào biến tạm 'cfg_door'\n// Giả sử Switch của bạn gửi true (Mở) / false (Đóng)\nflow.set(\"cfg_door\", msg.payload);\nreturn null; // Không gửi gì đi cả",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c9958700fe75e998",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Lưu buzzer",
+        "func": "// Lưu trạng thái buzzer vào biến tạm 'cfg_buzzer'\nflow.set(\"cfg_buzzer\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "efd24a536b3df415",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Lưu lệnh tổng",
+        "func": "// 1. Lấy tất cả giá trị đã lưu\nvar doorState = flow.get(\"cfg_door\");\nvar buzzerState = flow.get(\"cfg_buzzer\");\nvar sensorState = flow.get(\"cfg_sensor\");\nvar tempVal = flow.get(\"cfg_temp\");\nvar distVal = flow.get(\"cfg_dist\"); // <--- Lấy giá trị khoảng cách mới\n\nvar cmds = [];\n\n// Các lệnh cũ (Cửa, Buzzer, Cảm biến, Nhiệt độ)...\nif (doorState !== undefined) {\n    var cmdDoor = (doorState === true || doorState === \"OPEN\") ? \"OPEN\" : \"CLOSE\";\n    cmds.push({ payload: cmdDoor });\n}\nif (buzzerState !== undefined) {\n    var cmdBuzzer = (buzzerState === true || buzzerState === \"BUZZER_ON\") ? \"BUZZER_ON\" : \"BUZZER_OFF\";\n    cmds.push({ payload: cmdBuzzer });\n}\nif (sensorState !== undefined) {\n    var cmdSensor = (sensorState === true) ? \"SENSOR_ON\" : \"SENSOR_OFF\";\n    cmds.push({ payload: cmdSensor });\n}\nif (tempVal !== undefined) {\n    cmds.push({ payload: \"SET_TEMP:\" + tempVal });\n}\n\n// --- MỚI: LỆNH SET KHOẢNG CÁCH ---\nif (distVal !== undefined) {\n    cmds.push({ payload: \"SET_DIST:\" + distVal });\n}\n\nif (cmds.length === 0) {\n    node.warn(\"Chưa có cài đặt nào thay đổi!\");\n    return null;\n}\n\nreturn [cmds];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 500,
+        "wires": [
+            [
+                "aab768e03eb79a19"
+            ]
+        ]
+    },
+    {
+        "id": "aab768e03eb79a19",
+        "type": "mqtt out",
+        "z": "tab_dashboard",
+        "name": "",
+        "topic": "smartdoor/nhom10/cmd",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "d6797cad3fe0fda9",
+        "x": 590,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "9e61827b51747c2a",
+        "type": "mqtt in",
+        "z": "tab_dashboard",
+        "name": "",
+        "topic": "smartdoor/nhom10/status/door",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 930,
+        "y": 140,
+        "wires": [
+            [
+                "text_door"
+            ]
+        ]
+    },
+    {
+        "id": "795956805c724e0a",
+        "type": "mqtt in",
+        "z": "tab_dashboard",
+        "name": "",
+        "topic": "smartdoor/nhom10/status/sensor",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 930,
+        "y": 200,
+        "wires": [
+            [
+                "text_sensor"
+            ]
+        ]
+    },
+    {
+        "id": "32b92c06895951f4",
+        "type": "mqtt in",
+        "z": "tab_dashboard",
+        "name": "",
+        "topic": "smartdoor/nhom10/status/buzzer",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 930,
+        "y": 260,
+        "wires": [
+            [
+                "text_buzzer"
+            ]
+        ]
+    },
+    {
+        "id": "f086094143439ade",
+        "type": "ui_slider",
+        "z": "tab_dashboard",
+        "name": "",
+        "label": "Khoảng cách cảnh báo",
+        "tooltip": "{{value}}",
+        "group": "f0fc630b4eefb42e",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "outs": "all",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "200",
+        "step": 1,
+        "className": "",
+        "x": 140,
+        "y": 420,
+        "wires": [
+            [
+                "6f9a9ddcdd142022"
+            ]
+        ]
+    },
+    {
+        "id": "6f9a9ddcdd142022",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Lưu khoảng cách",
+        "func": "// Lưu khoảng cách vào biến tạm 'cfg_dist'\nflow.set(\"cfg_dist\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "link_temp_to_email_v19",
+        "type": "link in",
+        "z": "tab_dashboard",
+        "name": "Link Temp Email",
+        "links": [
+            "link_out_temp"
+        ],
+        "x": 615,
+        "y": 520,
+        "wires": [
+            [
+                "func_email_logic_v19"
+            ]
+        ]
+    },
+    {
+        "id": "func_email_logic_v19",
+        "type": "function",
+        "z": "tab_dashboard",
+        "name": "Logic Gửi Email (Chống Spam 60s)",
+        "func": "// 1. Lấy dữ liệu\nvar temp = parseFloat(flow.get(\"current_temp\"));\nvar threshold = parseFloat(flow.get(\"cfg_temp\")) || 50; // Mặc định 50 độ nếu chưa set\nvar lastSent = flow.get(\"email_last_sent\") || 0;\nvar now = new Date().getTime();\n\n// 2. Kiểm tra điều kiện: Nhiệt độ cao hơn ngưỡng VÀ đã qua 60 giây kể từ lần gửi trước\nif (temp > threshold && (now - lastSent) > 60000) {\n    \n    // Cập nhật thời gian gửi\n    flow.set(\"email_last_sent\", now);\n    \n    // 3. Nội dung Email\n    // LƯU Ý: Bạn cần nhập địa chỉ nhận trong node Email hoặc sửa dòng dưới đây\n    msg.to = \"nguyenphunghoangnhi78@gmail.com\"; // Gửi thử cho chính mình\n    msg.topic = \"🔥 CẢNH BÁO KHẨN CẤP: NHIỆT ĐỘ CAO!\";\n    msg.payload = `Hệ thống SmartDoor phát hiện nguy hiểm:\n\n- Nhiệt độ hiện tại: ${temp}°C\n- Ngưỡng cho phép: ${threshold}°C\n- Thời gian: ${new Date().toLocaleString()}\n\nVui lòng kiểm tra ngay lập tức!`;\n    \n    return msg;\n}\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 520,
+        "wires": [
+            [
+                "node_email_sender_v19"
+            ]
+        ]
+    },
+    {
+        "id": "node_email_sender_v19",
+        "type": "e-mail",
+        "z": "tab_dashboard",
+        "server": "smtp.gmail.com",
+        "port": "465",
+        "authtype": "BASIC",
+        "saslformat": false,
+        "token": "oauth2Response.access_token",
+        "secure": true,
+        "tls": true,
+        "name": "nguyenphunghoangnhi78@gmail.com",
+        "dname": "",
+        "x": 1170,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "group_chatbot_ai",
+        "type": "ui_group",
+        "name": "Công cụ trợ lý ảo",
+        "tab": "c282cd94fdd65e1c",
+        "order": 6,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "d6797cad3fe0fda9",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "7c97dfb42a4424c9",
+        "type": "ui_group",
+        "name": "Điều khiển trực tiếp",
+        "tab": "c282cd94fdd65e1c",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "f0fc630b4eefb42e",
+        "type": "ui_group",
+        "name": "Điều chỉnh ngưỡng",
+        "tab": "c282cd94fdd65e1c",
+        "order": 4,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "2450d44f0842d1dc",
+        "type": "ui_group",
+        "name": "Stats",
+        "tab": "c282cd94fdd65e1c",
+        "order": 2,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "32eb1cee9a13bf06",
+        "type": "ui_group",
+        "name": "Status",
+        "tab": "c282cd94fdd65e1c",
+        "order": 3,
+        "disp": true,
+        "width": "9",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "c282cd94fdd65e1c",
+        "type": "ui_tab",
+        "name": "Dashboard",
+        "icon": "dashboard",
+        "order": 2,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "d394983f88ba7cd4",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6",
+            "node-red-node-ui-table": "0.4.5",
+            "node-red-node-email-variable": "1.1.7"
+        }
+    }
+]
