@@ -1,0 +1,947 @@
+[
+    {
+        "id": "dashboard_tab",
+        "type": "tab",
+        "label": "SmartDoor Dashboard",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "switch_door",
+        "type": "ui_switch",
+        "z": "dashboard_tab",
+        "name": "Mở/Khóa cửa",
+        "label": "Mở/Khóa cửa",
+        "tooltip": "",
+        "group": "7c97dfb42a4424c9",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "door",
+        "topicType": "str",
+        "style": "",
+        "onvalue": "OPEN",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "CLOSE",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 120,
+        "y": 100,
+        "wires": [
+            [
+                "f84f9d631a204e42"
+            ]
+        ]
+    },
+    {
+        "id": "switch_buzzer",
+        "type": "ui_switch",
+        "z": "dashboard_tab",
+        "name": "Bật/Tắt buzzer",
+        "label": "Bật/Tắt buzzer",
+        "tooltip": "",
+        "group": "7c97dfb42a4424c9",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "buzzer",
+        "topicType": "str",
+        "style": "",
+        "onvalue": "BUZZER_ON",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "BUZZER_OFF",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 120,
+        "y": 160,
+        "wires": [
+            [
+                "c9958700fe75e998"
+            ]
+        ]
+    },
+    {
+        "id": "slider_temp",
+        "type": "ui_slider",
+        "z": "dashboard_tab",
+        "name": "Nhiệt độ cảnh báo",
+        "label": "Nhiệt độ cảnh báo",
+        "tooltip": "{{value}}",
+        "group": "f0fc630b4eefb42e",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "outs": "all",
+        "topic": "temp_alert",
+        "topicType": "str",
+        "min": 0,
+        "max": "70",
+        "step": 1,
+        "className": "Có thể! Bạn có thể tạo hiệu ứng đẹp hơn bằng CSS. Dưới đây là một số cách: Cách 1: Hiển thị giá trị động bên cạnh thumb (nút trượt) Thêm vào trường Class: slider-with-value Sau đó vào Dashboard → Site → Theme, thêm CSS vào phần Style: css/* Hiển thị giá trị động trên thumb */ .slider-with-value input[type=\"range\"] {     position: relative; }  .slider-with-value .md-thumb:after {     content: attr(aria-valuenow);     position: absolute;     top: -35px;     left: 50%;     transform: translateX(-50%);     background: #ff5722;     color: white;     padding: 5px 12px;     border-radius: 20px;     font-size: 14px;     font-weight: bold;     box-shadow: 0 2px 8px rgba(0,0,0,0.3);     white-space: nowrap; }  /* Thêm mũi tên nhỏ */ .slider-with-value .md-thumb:before {     content: '';     position: absolute;     top: -15px;     left: 50%;     transform: translateX(-50%);     width: 0;     height: 0;     border-left: 6px solid transparent;     border-right: 6px solid transparent;     border-top: 8px solid #ff5722; }",
+        "x": 130,
+        "y": 360,
+        "wires": [
+            [
+                "9f16df6ead0deedf"
+            ]
+        ]
+    },
+    {
+        "id": "button_control",
+        "type": "ui_button",
+        "z": "dashboard_tab",
+        "name": "ĐIỀU CHỈNH",
+        "group": "f0fc630b4eefb42e",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "label": "ĐIỀU CHỈNH",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "#0288D1",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "adjust",
+        "topicType": "str",
+        "x": 110,
+        "y": 500,
+        "wires": [
+            [
+                "efd24a536b3df415"
+            ]
+        ]
+    },
+    {
+        "id": "date_picker",
+        "type": "ui_date_picker",
+        "z": "dashboard_tab",
+        "name": "Chọn ngày",
+        "label": "Chọn ngày để hiển thị thông tin",
+        "group": "2450d44f0842d1dc",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "topic": "date",
+        "topicType": "str",
+        "className": "",
+        "x": 590,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dropdown_action",
+        "type": "ui_dropdown",
+        "z": "dashboard_tab",
+        "name": "Hành động",
+        "label": "Hành động",
+        "tooltip": "",
+        "place": "Tất cả",
+        "group": "2450d44f0842d1dc",
+        "order": 4,
+        "width": 5,
+        "height": 2,
+        "passthru": true,
+        "multiple": false,
+        "options": [
+            {
+                "label": "Tất cả",
+                "value": "all",
+                "type": "str"
+            },
+            {
+                "label": "Mở cửa",
+                "value": "open",
+                "type": "str"
+            },
+            {
+                "label": "Khóa cửa",
+                "value": "close",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "action",
+        "topicType": "str",
+        "className": "",
+        "x": 590,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "dropdown_status",
+        "type": "ui_dropdown",
+        "z": "dashboard_tab",
+        "name": "Trạng thái",
+        "label": "Trạng thái",
+        "tooltip": "",
+        "place": "Tất cả",
+        "group": "2450d44f0842d1dc",
+        "order": 5,
+        "width": 4,
+        "height": 2,
+        "passthru": true,
+        "multiple": false,
+        "options": [
+            {
+                "label": "Tất cả",
+                "value": "all",
+                "type": "str"
+            },
+            {
+                "label": "Thành công",
+                "value": "success",
+                "type": "str"
+            },
+            {
+                "label": "Thất bại",
+                "value": "failed",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "status",
+        "topicType": "str",
+        "className": "",
+        "x": 640,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "button_apply",
+        "type": "ui_button",
+        "z": "dashboard_tab",
+        "name": "ÁP DỤNG",
+        "group": "2450d44f0842d1dc",
+        "order": 6,
+        "width": 3,
+        "height": 1,
+        "passthru": false,
+        "label": "ÁP DỤNG",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "#0288D1",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "apply",
+        "topicType": "str",
+        "x": 570,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "text_door_status",
+        "type": "ui_text",
+        "z": "dashboard_tab",
+        "group": "32eb1cee9a13bf06",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "Trạng thái cửa",
+        "label": "Trạng thái cửa:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1300,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "text_sensor_status",
+        "type": "ui_text",
+        "z": "dashboard_tab",
+        "group": "32eb1cee9a13bf06",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "name": "Trạng thái cảm biến",
+        "label": "Trạng thái cảm biến nhiệt độ/độ ẩm",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1270,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "text_buzzer_status",
+        "type": "ui_text",
+        "z": "dashboard_tab",
+        "group": "32eb1cee9a13bf06",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "name": "Trạng thái buzzer",
+        "label": "Trạng thái buzzer:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1270,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "gauge_current_temp",
+        "type": "ui_gauge",
+        "z": "dashboard_tab",
+        "name": "Nhiệt độ hiện tại",
+        "group": "32eb1cee9a13bf06",
+        "order": 4,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Nhiệt độ hiện tại",
+        "label": "°C",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "70",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "23",
+        "seg2": "46",
+        "diff": false,
+        "className": "",
+        "x": 1300,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "fdd3b7fdb6131409",
+        "type": "ui_table",
+        "z": "dashboard_tab",
+        "group": "2450d44f0842d1dc",
+        "name": "",
+        "order": 8,
+        "width": 11,
+        "height": 5,
+        "columns": [],
+        "outputs": 0,
+        "cts": false,
+        "x": 910,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "3174c335177b026d",
+        "type": "inject",
+        "z": "dashboard_tab",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 610,
+        "y": 540,
+        "wires": [
+            [
+                "3e57098ffa1a725d"
+            ]
+        ]
+    },
+    {
+        "id": "3e57098ffa1a725d",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "function 2",
+        "func": "// Mô phỏng dữ liệu lịch sử hành động\nmsg.payload = [\n    { \"Thời gian\": \"00:03:56\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:30:18\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:35:55\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:38:10\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:42:00\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thành công\" },\n    { \"Thời gian\": \"10:54:21\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thất bại\" },\n    { \"Thời gian\": \"10:56:09\", \"Hành động\": \"Mở cửa\", \"Trạng thái\": \"Thất bại\" }\n];\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 560,
+        "wires": [
+            [
+                "fdd3b7fdb6131409"
+            ]
+        ]
+    },
+    {
+        "id": "5256654dfb78fd47",
+        "type": "ui_gauge",
+        "z": "dashboard_tab",
+        "name": "",
+        "group": "2450d44f0842d1dc",
+        "order": 2,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Nhiệt độ trung bình",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 10,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 570,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "f99d213ba86cbad4",
+        "type": "ui_gauge",
+        "z": "dashboard_tab",
+        "name": "",
+        "group": "2450d44f0842d1dc",
+        "order": 1,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Độ ẩm trung bình",
+        "label": "units",
+        "format": "{{value}}",
+        "min": 0,
+        "max": 10,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 590,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "a72e5c79cb23fe25",
+        "type": "ui_switch",
+        "z": "dashboard_tab",
+        "name": "",
+        "label": "Bật/Tắt cảm biến độ ẩm/nhiệt độ",
+        "tooltip": "",
+        "group": "7c97dfb42a4424c9",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": false,
+        "className": "",
+        "x": 150,
+        "y": 260,
+        "wires": [
+            [
+                "2f86523ff32bf334"
+            ]
+        ]
+    },
+    {
+        "id": "b39cb9f2be80aeb4",
+        "type": "mqtt in",
+        "z": "dashboard_tab",
+        "name": "",
+        "topic": "smartdoor/nhom10/temperature",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 950,
+        "y": 380,
+        "wires": [
+            [
+                "gauge_current_temp"
+            ]
+        ]
+    },
+    {
+        "id": "56033b32a6e9eac0",
+        "type": "ui_gauge",
+        "z": "dashboard_tab",
+        "name": "",
+        "group": "32eb1cee9a13bf06",
+        "order": 5,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Độ ẩm hiện tại",
+        "label": "%",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "100",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1260,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "df273b4cf83fde1f",
+        "type": "mqtt in",
+        "z": "dashboard_tab",
+        "name": "",
+        "topic": "smartdoor/nhom10/humidity",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 940,
+        "y": 440,
+        "wires": [
+            [
+                "56033b32a6e9eac0"
+            ]
+        ]
+    },
+    {
+        "id": "2f86523ff32bf334",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "Lưu cảm biến",
+        "func": "// Lưu trạng thái cảm biến vào biến tạm 'cfg_sensor'\nflow.set(\"cfg_sensor\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9f16df6ead0deedf",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "Lưu nhiệt độ",
+        "func": "// Lưu nhiệt độ vào biến tạm 'cfg_temp'\nflow.set(\"cfg_temp\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f84f9d631a204e42",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "Lưu cửa",
+        "func": "// Lưu trạng thái cửa vào biến tạm 'cfg_door'\n// Giả sử Switch của bạn gửi true (Mở) / false (Đóng)\nflow.set(\"cfg_door\", msg.payload);\nreturn null; // Không gửi gì đi cả",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c9958700fe75e998",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "Lưu buzzer",
+        "func": "// Lưu trạng thái buzzer vào biến tạm 'cfg_buzzer'\nflow.set(\"cfg_buzzer\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "efd24a536b3df415",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "Lưu lệnh tổng",
+        "func": "// 1. Lấy tất cả giá trị đã lưu\nvar doorState = flow.get(\"cfg_door\");\nvar buzzerState = flow.get(\"cfg_buzzer\");\nvar sensorState = flow.get(\"cfg_sensor\");\nvar tempVal = flow.get(\"cfg_temp\");\nvar distVal = flow.get(\"cfg_dist\"); // <--- Lấy giá trị khoảng cách mới\n\nvar cmds = [];\n\n// Các lệnh cũ (Cửa, Buzzer, Cảm biến, Nhiệt độ)...\nif (doorState !== undefined) {\n    var cmdDoor = (doorState === true || doorState === \"OPEN\") ? \"OPEN\" : \"CLOSE\";\n    cmds.push({ payload: cmdDoor });\n}\nif (buzzerState !== undefined) {\n    var cmdBuzzer = (buzzerState === true || buzzerState === \"BUZZER_ON\") ? \"BUZZER_ON\" : \"BUZZER_OFF\";\n    cmds.push({ payload: cmdBuzzer });\n}\nif (sensorState !== undefined) {\n    var cmdSensor = (sensorState === true) ? \"SENSOR_ON\" : \"SENSOR_OFF\";\n    cmds.push({ payload: cmdSensor });\n}\nif (tempVal !== undefined) {\n    cmds.push({ payload: \"SET_TEMP:\" + tempVal });\n}\n\n// --- MỚI: LỆNH SET KHOẢNG CÁCH ---\nif (distVal !== undefined) {\n    cmds.push({ payload: \"SET_DIST:\" + distVal });\n}\n\nif (cmds.length === 0) {\n    node.warn(\"Chưa có cài đặt nào thay đổi!\");\n    return null;\n}\n\nreturn [cmds];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 500,
+        "wires": [
+            [
+                "aab768e03eb79a19"
+            ]
+        ]
+    },
+    {
+        "id": "aab768e03eb79a19",
+        "type": "mqtt out",
+        "z": "dashboard_tab",
+        "name": "",
+        "topic": "smartdoor/nhom10/cmd",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "d6797cad3fe0fda9",
+        "x": 590,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "9e61827b51747c2a",
+        "type": "mqtt in",
+        "z": "dashboard_tab",
+        "name": "",
+        "topic": "smartdoor/nhom10/status/door",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 930,
+        "y": 180,
+        "wires": [
+            [
+                "text_door_status"
+            ]
+        ]
+    },
+    {
+        "id": "795956805c724e0a",
+        "type": "mqtt in",
+        "z": "dashboard_tab",
+        "name": "",
+        "topic": "smartdoor/nhom10/status/sensor",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 930,
+        "y": 240,
+        "wires": [
+            [
+                "text_sensor_status"
+            ]
+        ]
+    },
+    {
+        "id": "32b92c06895951f4",
+        "type": "mqtt in",
+        "z": "dashboard_tab",
+        "name": "",
+        "topic": "smartdoor/nhom10/status/buzzer",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "d6797cad3fe0fda9",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 950,
+        "y": 300,
+        "wires": [
+            [
+                "text_buzzer_status"
+            ]
+        ]
+    },
+    {
+        "id": "f086094143439ade",
+        "type": "ui_slider",
+        "z": "dashboard_tab",
+        "name": "",
+        "label": "Khoảng cách cảnh báo",
+        "tooltip": "{{value}}",
+        "group": "f0fc630b4eefb42e",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "outs": "all",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "200",
+        "step": 1,
+        "className": "",
+        "x": 140,
+        "y": 420,
+        "wires": [
+            [
+                "6f9a9ddcdd142022"
+            ]
+        ]
+    },
+    {
+        "id": "6f9a9ddcdd142022",
+        "type": "function",
+        "z": "dashboard_tab",
+        "name": "Lưu khoảng cách",
+        "func": "// Lưu khoảng cách vào biến tạm 'cfg_dist'\nflow.set(\"cfg_dist\", msg.payload);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "92cd7fd9ed726dda",
+        "type": "ui_spacer",
+        "z": "dashboard_tab",
+        "name": "spacer",
+        "group": "2450d44f0842d1dc",
+        "order": 7,
+        "width": 3,
+        "height": 1
+    },
+    {
+        "id": "aa88189521333919",
+        "type": "ui_spacer",
+        "z": "dashboard_tab",
+        "name": "spacer",
+        "group": "2450d44f0842d1dc",
+        "order": 9,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "db0e8609a47d2386",
+        "type": "ui_spacer",
+        "z": "dashboard_tab",
+        "name": "spacer",
+        "group": "2450d44f0842d1dc",
+        "order": 10,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "5b17e167922f996e",
+        "type": "ui_spacer",
+        "z": "dashboard_tab",
+        "name": "spacer",
+        "group": "2450d44f0842d1dc",
+        "order": 11,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "f8ca545b2955cc3d",
+        "type": "ui_spacer",
+        "z": "dashboard_tab",
+        "name": "spacer",
+        "group": "2450d44f0842d1dc",
+        "order": 12,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "2fcd7a6791816585",
+        "type": "ui_spacer",
+        "z": "dashboard_tab",
+        "name": "spacer",
+        "group": "2450d44f0842d1dc",
+        "order": 13,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "7c97dfb42a4424c9",
+        "type": "ui_group",
+        "name": "Điều khiển trực tiếp",
+        "tab": "c282cd94fdd65e1c",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "f0fc630b4eefb42e",
+        "type": "ui_group",
+        "name": "Điều chỉnh ngưỡng",
+        "tab": "c282cd94fdd65e1c",
+        "order": 4,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "2450d44f0842d1dc",
+        "type": "ui_group",
+        "name": "Stats",
+        "tab": "c282cd94fdd65e1c",
+        "order": 2,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "32eb1cee9a13bf06",
+        "type": "ui_group",
+        "name": "Status",
+        "tab": "c282cd94fdd65e1c",
+        "order": 3,
+        "disp": true,
+        "width": "9",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "d6797cad3fe0fda9",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "c282cd94fdd65e1c",
+        "type": "ui_tab",
+        "name": "Dashboard",
+        "icon": "dashboard",
+        "order": 2,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "cb2725bee4b3fd73",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6",
+            "node-red-node-ui-table": "0.4.5"
+        }
+    }
+]
