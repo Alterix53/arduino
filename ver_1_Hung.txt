@@ -2,6 +2,7 @@
 #include <PubSubClient.h>
 #include <ESP32Servo.h>
 #include "DHT.h"
+#include <LiquidCrystal_I2C.h> // <--- Thư viện LCD
 
 // --- WIFI & MQTT ---
 const char* ssid = "Wokwi-GUEST";
@@ -16,6 +17,9 @@ const char* topic_st_buzzer = "smartdoor/nhom10/status/buzzer";
 const char* topic_st_sensor = "smartdoor/nhom10/status/sensor";
 const char* topic_cmd = "smartdoor/nhom10/cmd";
 
+// TOPIC MỚI CHO LCD
+const char* topic_lcd = "smartdoor/nhom10/lcd"; 
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -25,27 +29,36 @@ PubSubClient client(espClient);
 #define ECHO_PIN  18 
 #define DHT_PIN   15
 #define BUZZER_PIN 4
-#define LED_PIN    2    // <--- Chân đèn cảnh báo mới
+#define LED_PIN    2    
 #define DHT_TYPE DHT22
 
 Servo doorLock;
 DHT dht(DHT_PIN, DHT_TYPE);
+// Khởi tạo LCD địa chỉ 0x27, 16 cột 2 dòng
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- BIẾN TOÀN CỤC ---
 unsigned long lastMsg = 0;
 unsigned long doorOpenTime = 0; 
-unsigned long previousBlink = 0; // Biến để đếm giờ chớp đèn
+unsigned long previousBlink = 0; 
 bool isDoorOpen = false;
-bool ledState = LOW; // Trạng thái hiện tại của đèn (Tắt/Bật)
+bool ledState = LOW; 
 
-// Cấu hình (Mặc định)
+// Cấu hình
 bool isSensorActive = true;     
 int tempThreshold = 40;
-int distThreshold = 50; // <--- Ngưỡng khoảng cách mặc định (cm)
+int distThreshold = 50; 
 bool isBuzzerManual = false; 
 
 void setup() {
   Serial.begin(115200);
+  
+  // Khởi tạo LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("System Init...");
+
   doorLock.attach(SERVO_PIN);
   doorLock.write(0);
   
@@ -53,7 +66,7 @@ void setup() {
   pinMode(ECHO_PIN, INPUT);
   dht.begin();
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(LED_PIN, OUTPUT); // <--- Khởi tạo đèn
+  pinMode(LED_PIN, OUTPUT); 
 
   setup_wifi();
   client.setServer(mqtt_server, 1883);
@@ -68,48 +81,64 @@ void setup_wifi() {
   }
 }
 
+// HÀM XỬ LÝ LỆNH NHẬN ĐƯỢC
 void callback(char* topic, byte* message, unsigned int length) {
-  String msg;
+  String msg = "";
   for (int i = 0; i < length; i++) msg += (char)message[i];
-  Serial.print("Lenh: "); Serial.println(msg);
+  Serial.print("Topic: "); Serial.print(topic);
+  Serial.print(" | Msg: "); Serial.println(msg);
 
-  if (msg == "OPEN") {
-    doorLock.write(90); isDoorOpen = true; doorOpenTime = millis();
-    client.publish(topic_st_door, "Đang Mở");
-  } 
-  else if (msg == "CLOSE") {
-    doorLock.write(0); isDoorOpen = false;
-    client.publish(topic_st_door, "Đang Khóa");
+  // 1. XỬ LÝ TIN NHẮN LCD (TỪ WEB GỬI XUỐNG)
+  if (String(topic) == topic_lcd) {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print(msg); // In nội dung Web gửi
+      // Nếu tin nhắn dài, bạn có thể xử lý in xuống dòng 2 ở đây
+      return; // Xử lý xong thì thoát, không check lệnh khác
   }
-  else if (msg == "BUZZER_ON") {
-    isBuzzerManual = true; tone(BUZZER_PIN, 1000);
-    client.publish(topic_st_buzzer, "Đang Kêu");
-  }
-  else if (msg == "BUZZER_OFF") {
-    isBuzzerManual = false; noTone(BUZZER_PIN);
-    client.publish(topic_st_buzzer, "Yên Lặng");
-  }
-  else if (msg == "SENSOR_ON") {
-    isSensorActive = true; client.publish(topic_st_sensor, "Đang Bật");
-  }
-  else if (msg == "SENSOR_OFF") {
-    isSensorActive = false; client.publish(topic_st_sensor, "Đã Tắt");
-  }
-  else if (msg.startsWith("SET_TEMP:")) {
-    tempThreshold = msg.substring(9).toInt();
-  }
-  // --- NHẬN LỆNH CÀI ĐẶT KHOẢNG CÁCH ---
-  else if (msg.startsWith("SET_DIST:")) {
-    distThreshold = msg.substring(9).toInt();
-    Serial.println("New Dist Limit: " + String(distThreshold));
+
+  // 2. XỬ LÝ LỆNH ĐIỀU KHIỂN (CMD)
+  if (String(topic) == topic_cmd) {
+      if (msg == "OPEN") {
+        doorLock.write(90); isDoorOpen = true; doorOpenTime = millis();
+        client.publish(topic_st_door, "Đang Mở");
+      } 
+      else if (msg == "CLOSE") {
+        doorLock.write(0); isDoorOpen = false;
+        client.publish(topic_st_door, "Đang Khóa");
+      }
+      else if (msg == "BUZZER_ON") {
+        isBuzzerManual = true; tone(BUZZER_PIN, 1000);
+        client.publish(topic_st_buzzer, "Đang Kêu");
+      }
+      else if (msg == "BUZZER_OFF") {
+        isBuzzerManual = false; noTone(BUZZER_PIN);
+        client.publish(topic_st_buzzer, "Yên Lặng");
+      }
+      else if (msg == "SENSOR_ON") {
+        isSensorActive = true; client.publish(topic_st_sensor, "Đang Bật");
+      }
+      else if (msg == "SENSOR_OFF") {
+        isSensorActive = false; client.publish(topic_st_sensor, "Đã Tắt");
+      }
+      else if (msg.startsWith("SET_TEMP:")) {
+        tempThreshold = msg.substring(9).toInt();
+      }
+      else if (msg.startsWith("SET_DIST:")) {
+        distThreshold = msg.substring(9).toInt();
+      }
   }
 }
 
 void reconnect() {
   while (!client.connected()) {
     if (client.connect("ESP32_Nhom10_Main")) {
-      client.subscribe(topic_cmd);
+      // Đăng ký nhận tin từ cả 2 topic
+      client.subscribe(topic_cmd); // Topic lệnh
+      client.subscribe(topic_lcd); // Topic hiển thị LCD
+      
       client.publish(topic_st_door, "Đang Khóa");
+      lcd.clear(); lcd.print("Ready to Connect");
     } else delay(5000);
   }
 }
@@ -122,28 +151,26 @@ void loop() {
   if (isDoorOpen && (millis() - doorOpenTime > 5000)) {
     doorLock.write(0); isDoorOpen = false;
     client.publish(topic_st_door, "Đang Khóa (Auto)");
+    // Tự động báo lên LCD khi auto lock
+    lcd.clear(); lcd.print("Auto Locked!");
   }
 
-  // --- LOGIC ĐỌC CẢM BIẾN & XỬ LÝ LIÊN TỤC ---
-  // Đọc siêu âm (Không được dùng delay trong này để đèn còn chớp)
+  // Logic đèn cảnh báo
   digitalWrite(TRIG_PIN, LOW); delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10); digitalWrite(TRIG_PIN, LOW);
   long duration = pulseIn(ECHO_PIN, HIGH);
   int distance = duration * 0.034 / 2;
 
-  // LOGIC ĐÈN CHỚP TẮT (BLINK) KHI CÓ NGƯỜI
   if (distance > 0 && distance < distThreshold) {
-      // Dùng millis để chớp tắt mỗi 200ms
       if (millis() - previousBlink >= 200) {
         previousBlink = millis();
-        ledState = !ledState; // Đảo trạng thái đèn
+        ledState = !ledState;
         digitalWrite(LED_PIN, ledState);
       }
   } else {
-      digitalWrite(LED_PIN, LOW); // Tắt hẳn nếu không có người
+      digitalWrite(LED_PIN, LOW);
   }
 
-  // Gửi dữ liệu định kỳ (2 giây/lần)
   long now = millis();
   if (now - lastMsg > 2000) {
     lastMsg = now;
