@@ -53,6 +53,10 @@ void setup() {
   pinMode(ECHO_PIN, INPUT);
   dht.begin();
   pinMode(BUZZER_PIN, OUTPUT);
+
+  digitalWrite(BUZZER_PIN, LOW); // <--- THÊM DÒNG NÀY (Đảm bảo điện áp thấp)
+  noTone(BUZZER_PIN);            // <--- THÊM DÒNG NÀY (Đảm bảo tắt xung PWM)
+
   pinMode(LED_PIN, OUTPUT); // <--- Khởi tạo đèn
 
   setup_wifi();
@@ -115,53 +119,72 @@ void reconnect() {
 }
 
 void loop() {
+  // 1. Giữ kết nối MQTT
   if (!client.connected()) reconnect();
   client.loop();
 
-  // Auto-Lock
+  // 2. AUTO-LOCK (Tự động khóa cửa sau 5s mở)
   if (isDoorOpen && (millis() - doorOpenTime > 5000)) {
-    doorLock.write(0); isDoorOpen = false;
+    doorLock.write(0); 
+    isDoorOpen = false;
     client.publish(topic_st_door, "Đang Khóa (Auto)");
   }
 
-  // --- LOGIC ĐỌC CẢM BIẾN & XỬ LÝ LIÊN TỤC ---
-  // Đọc siêu âm (Không được dùng delay trong này để đèn còn chớp)
+  // 3. ĐỌC CẢM BIẾN SIÊU ÂM (HC-SR04)
   digitalWrite(TRIG_PIN, LOW); delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10); digitalWrite(TRIG_PIN, LOW);
   long duration = pulseIn(ECHO_PIN, HIGH);
   int distance = duration * 0.034 / 2;
 
-  // LOGIC ĐÈN CHỚP TẮT (BLINK) KHI CÓ NGƯỜI
+  // Logic Đèn LED chớp tắt (Blink không dùng delay)
   if (distance > 0 && distance < distThreshold) {
-      // Dùng millis để chớp tắt mỗi 200ms
-      if (millis() - previousBlink >= 200) {
+      if (millis() - previousBlink >= 200) { // Chớp mỗi 200ms
         previousBlink = millis();
-        ledState = !ledState; // Đảo trạng thái đèn
+        ledState = !ledState;
         digitalWrite(LED_PIN, ledState);
       }
   } else {
-      digitalWrite(LED_PIN, LOW); // Tắt hẳn nếu không có người
+      digitalWrite(LED_PIN, LOW); // Tắt hẳn đèn khi không có người
   }
 
-  // Gửi dữ liệu định kỳ (2 giây/lần)
+  // 4. ĐỌC DHT22 & XỬ LÝ CÒI (Chu kỳ 2 giây/lần)
   long now = millis();
-  if (now - lastMsg > 2000) {
+  if (now - lastMsg > 2000) { 
     lastMsg = now;
+    
     if (isSensorActive) {
       float h = dht.readHumidity();
       float t = dht.readTemperature();
+
+      // Kiểm tra xem cảm biến có đọc được số không (tránh lỗi NaN)
       if (!isnan(t) && !isnan(h)) {
+        // A. Gửi dữ liệu lên Server
         client.publish(topic_temp, String(t, 1).c_str());
         client.publish(topic_hum, String(h, 1).c_str());
         
-        // Buzzer Logic
-        if (isBuzzerManual) tone(BUZZER_PIN, 1000);
+        // B. Logic Còi Báo Động (Ưu tiên: Thủ công -> Nhiệt độ -> Tắt)
+        if (isBuzzerManual) {
+             // Đang bật thủ công trên Web
+             tone(BUZZER_PIN, 1000);
+        } 
         else if (t > tempThreshold) {
+           // Quá nhiệt -> Hú còi
            tone(BUZZER_PIN, 1000);
            client.publish(topic_st_buzzer, "Cảnh Báo Nhiệt!");
-        } else {
+        } 
+        else {
+           // Bình thường -> Tắt còi
            noTone(BUZZER_PIN);
+           digitalWrite(BUZZER_PIN, LOW); // Đảm bảo tắt hẳn điện
            client.publish(topic_st_buzzer, "Yên Lặng");
+        }
+      } 
+      else {
+        // TRƯỜNG HỢP CẢM BIẾN LỖI (Rút dây hoặc hỏng) -> Tắt còi cho đỡ ồn
+        Serial.println("Lỗi đọc cảm biến DHT!");
+        if (!isBuzzerManual) {
+           noTone(BUZZER_PIN);
+           digitalWrite(BUZZER_PIN, LOW);
         }
       }
     }
