@@ -2,54 +2,59 @@
 #include <PubSubClient.h>
 #include <ESP32Servo.h>
 #include "DHT.h"
-#include <LiquidCrystal_I2C.h> // <--- Thư viện LCD
+#include <LiquidCrystal_I2C.h>
 
-// --- WIFI & MQTT ---
+// --- 1. CẤU HÌNH WIFI & MQTT ---
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 const char* mqtt_server = "broker.hivemq.com";
 
-// --- TOPIC ---
-const char* topic_temp = "smartdoor/nhom10/temperature";
-const char* topic_hum  = "smartdoor/nhom10/humidity";
+// --- 2. CÁC TOPIC MQTT ---
+// Topic gửi lên (Publish)
+const char* topic_temp      = "smartdoor/nhom10/temperature";
+const char* topic_hum       = "smartdoor/nhom10/humidity";
 const char* topic_st_door   = "smartdoor/nhom10/status/door";
 const char* topic_st_buzzer = "smartdoor/nhom10/status/buzzer";
 const char* topic_st_sensor = "smartdoor/nhom10/status/sensor";
-const char* topic_cmd = "smartdoor/nhom10/cmd";
+const char* topic_alert     = "smartdoor/nhom10/alert"; // Topic gửi cảnh báo Pushsafer
 
-// TOPIC MỚI CHO LCD
-const char* topic_lcd = "smartdoor/nhom10/lcd"; 
+// Topic nhận lệnh (Subscribe)
+const char* topic_cmd = "smartdoor/nhom10/cmd"; // Lệnh điều khiển
+const char* topic_lcd = "smartdoor/nhom10/lcd"; // Lệnh hiển thị chữ lên LCD
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// --- PHẦN CỨNG ---
+// --- 3. CẤU HÌNH PHẦN CỨNG ---
 #define SERVO_PIN 13
 #define TRIG_PIN  5 
 #define ECHO_PIN  18 
 #define DHT_PIN   15
 #define BUZZER_PIN 4
-#define LED_PIN    2    
+#define LED_PIN    2    // Đèn cảnh báo
 #define DHT_TYPE DHT22
 
 Servo doorLock;
 DHT dht(DHT_PIN, DHT_TYPE);
-// Khởi tạo LCD địa chỉ 0x27, 16 cột 2 dòng
+// LCD I2C (Địa chỉ thường là 0x27)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// --- BIẾN TOÀN CỤC ---
+// --- 4. BIẾN TOÀN CỤC ---
 unsigned long lastMsg = 0;
 unsigned long doorOpenTime = 0; 
 unsigned long previousBlink = 0; 
+unsigned long lastAlertTime = 0; // Biến chống spam tin nhắn Pushsafer
+
 bool isDoorOpen = false;
 bool ledState = LOW; 
 
-// Cấu hình
+// Biến Cấu hình (Mặc định)
 bool isSensorActive = true;     
-int tempThreshold = 40;
-int distThreshold = 50; 
+int tempThreshold = 40; // Ngưỡng nhiệt độ báo động
+int distThreshold = 50; // Ngưỡng khoảng cách báo động (cm)
 bool isBuzzerManual = false; 
 
+// --- SETUP ---
 void setup() {
   Serial.begin(115200);
   
@@ -57,17 +62,20 @@ void setup() {
   lcd.init();
   lcd.backlight();
   lcd.setCursor(0, 0);
-  lcd.print("System Init...");
+  lcd.print("SmartDoor Init...");
 
+  // Khởi tạo Servo
   doorLock.attach(SERVO_PIN);
-  doorLock.write(0);
+  doorLock.write(0); // Mặc định khóa
   
+  // Khởi tạo Pin
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   dht.begin();
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT); 
 
+  // Kết nối mạng
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -75,29 +83,31 @@ void setup() {
 
 void setup_wifi() {
   delay(10);
+  Serial.print("Connecting Wifi");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500); Serial.print(".");
   }
+  Serial.println(" Connected!");
 }
 
-// HÀM XỬ LÝ LỆNH NHẬN ĐƯỢC
+// --- XỬ LÝ LỆNH TỪ NODE-RED GỬI XUỐNG ---
 void callback(char* topic, byte* message, unsigned int length) {
   String msg = "";
   for (int i = 0; i < length; i++) msg += (char)message[i];
+  
   Serial.print("Topic: "); Serial.print(topic);
   Serial.print(" | Msg: "); Serial.println(msg);
 
-  // 1. XỬ LÝ TIN NHẮN LCD (TỪ WEB GỬI XUỐNG)
+  // A. XỬ LÝ TIN NHẮN HIỂN THỊ LCD
   if (String(topic) == topic_lcd) {
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print(msg); // In nội dung Web gửi
-      // Nếu tin nhắn dài, bạn có thể xử lý in xuống dòng 2 ở đây
-      return; // Xử lý xong thì thoát, không check lệnh khác
+      lcd.print(msg); 
+      return; 
   }
 
-  // 2. XỬ LÝ LỆNH ĐIỀU KHIỂN (CMD)
+  // B. XỬ LÝ LỆNH ĐIỀU KHIỂN
   if (String(topic) == topic_cmd) {
       if (msg == "OPEN") {
         doorLock.write(90); isDoorOpen = true; doorOpenTime = millis();
@@ -121,56 +131,73 @@ void callback(char* topic, byte* message, unsigned int length) {
       else if (msg == "SENSOR_OFF") {
         isSensorActive = false; client.publish(topic_st_sensor, "Đã Tắt");
       }
+      // Cập nhật ngưỡng cài đặt
       else if (msg.startsWith("SET_TEMP:")) {
         tempThreshold = msg.substring(9).toInt();
+        Serial.println("New Temp Limit: " + String(tempThreshold));
       }
       else if (msg.startsWith("SET_DIST:")) {
         distThreshold = msg.substring(9).toInt();
+        Serial.println("New Dist Limit: " + String(distThreshold));
       }
   }
 }
 
 void reconnect() {
   while (!client.connected()) {
-    if (client.connect("ESP32_Nhom10_Main")) {
-      // Đăng ký nhận tin từ cả 2 topic
-      client.subscribe(topic_cmd); // Topic lệnh
-      client.subscribe(topic_lcd); // Topic hiển thị LCD
+    if (client.connect("ESP32_Nhom10_Unique_ID")) {
+      // Đăng ký nhận tin từ 2 topic quan trọng
+      client.subscribe(topic_cmd); 
+      client.subscribe(topic_lcd); 
       
       client.publish(topic_st_door, "Đang Khóa");
-      lcd.clear(); lcd.print("Ready to Connect");
+      lcd.clear(); lcd.print("System Ready!");
     } else delay(5000);
   }
 }
 
+// --- VÒNG LẶP CHÍNH ---
 void loop() {
   if (!client.connected()) reconnect();
   client.loop();
 
-  // Auto-Lock
+  // 1. TỰ ĐỘNG KHÓA CỬA (AUTO-LOCK)
   if (isDoorOpen && (millis() - doorOpenTime > 5000)) {
     doorLock.write(0); isDoorOpen = false;
     client.publish(topic_st_door, "Đang Khóa (Auto)");
-    // Tự động báo lên LCD khi auto lock
     lcd.clear(); lcd.print("Auto Locked!");
   }
 
-  // Logic đèn cảnh báo
+  // 2. LOGIC CẢM BIẾN KHOẢNG CÁCH (AN NINH)
   digitalWrite(TRIG_PIN, LOW); delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10); digitalWrite(TRIG_PIN, LOW);
   long duration = pulseIn(ECHO_PIN, HIGH);
   int distance = duration * 0.034 / 2;
 
+  // Nếu có người trong phạm vi cảnh báo
   if (distance > 0 && distance < distThreshold) {
+      
+      // a. Đèn LED chớp tắt (Cảnh báo tại chỗ)
       if (millis() - previousBlink >= 200) {
         previousBlink = millis();
         ledState = !ledState;
         digitalWrite(LED_PIN, ledState);
       }
+
+      // b. Gửi cảnh báo PUSHSAFER (Cảnh báo từ xa)
+      // Chỉ gửi 15 giây/lần để tránh spam điện thoại
+      if (millis() - lastAlertTime > 15000) {
+          lastAlertTime = millis();
+          String alertMsg = "CANH BAO: Co nguoi la (" + String(distance) + "cm)";
+          client.publish(topic_alert, alertMsg.c_str());
+          Serial.println(">> SENT PUSHSAFER ALERT!");
+      }
+
   } else {
-      digitalWrite(LED_PIN, LOW);
+      digitalWrite(LED_PIN, LOW); // Tắt đèn nếu an toàn
   }
 
+  // 3. GỬI DỮ LIỆU ĐỊNH KỲ (2 GIÂY/LẦN)
   long now = millis();
   if (now - lastMsg > 2000) {
     lastMsg = now;
@@ -178,14 +205,18 @@ void loop() {
       float h = dht.readHumidity();
       float t = dht.readTemperature();
       if (!isnan(t) && !isnan(h)) {
+        // Gửi nhiệt độ/độ ẩm
         client.publish(topic_temp, String(t, 1).c_str());
         client.publish(topic_hum, String(h, 1).c_str());
         
-        // Buzzer Logic
-        if (isBuzzerManual) tone(BUZZER_PIN, 1000);
-        else if (t > tempThreshold) {
+        // Logic Buzzer (Báo cháy nổ)
+        if (isBuzzerManual) {
+            tone(BUZZER_PIN, 1000);
+        } else if (t > tempThreshold) {
            tone(BUZZER_PIN, 1000);
            client.publish(topic_st_buzzer, "Cảnh Báo Nhiệt!");
+           // Có thể hiển thị cảnh báo lên LCD nếu muốn
+           // lcd.setCursor(0,1); lcd.print("WARNING: HOT!"); 
         } else {
            noTone(BUZZER_PIN);
            client.publish(topic_st_buzzer, "Yên Lặng");
