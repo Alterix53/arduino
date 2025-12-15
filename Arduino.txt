@@ -44,7 +44,7 @@ unsigned long doorOpenTime = 0;
 unsigned long previousBlink = 0; // Biến để đếm giờ chớp đèn
 bool isDoorOpen = false;
 bool ledState = LOW; // Trạng thái hiện tại của đèn (Tắt/Bật)
-
+int lastTime = 0;
 unsigned long lastAlertTime = 0; // Biến chống spam tin nhắn Pushsafer
 
 // Khởi tạo LCD địa chỉ 0x27, 16 cột 2 dòng
@@ -79,6 +79,10 @@ void setup() {
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  lastTime = millis();
+
+  digitalWrite(BUZZER_PIN, LOW);
+  noTone(BUZZER_PIN); 
 }
 
 void setup_wifi() {
@@ -98,55 +102,76 @@ void callback(char* topic, byte* message, unsigned int length) {
 
   // 1. XỬ LÝ TIN NHẮN HIỂN THỊ LCD
   if (String(topic) == topic_lcd) {
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print(msg); // In nội dung Web gửi
-      return; 
+      // KIỂM TRA: Nếu tin nhắn bắt đầu bằng "GREET:" (Là tin chào hỏi)
+      if (msg.startsWith("GREET:")) {
+          String name = msg.substring(6); // Cắt bỏ chữ "GREET:" lấy cái tên phía sau
+          
+          lcd.clear();
+          // Dòng 1: Cố định
+          lcd.setCursor(0, 0); 
+          lcd.print("Welcome Home !");
+          
+          // Dòng 2: Hiển thị tên (Canh giữa cho đẹp nếu thích)
+          lcd.setCursor(0, 1); 
+          lcd.print(name); 
+      } 
+      // Nếu là tin nhắn bình thường (không có GREET)
+      else {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print(msg); 
+      }
   }
   // 2. xử lý các lệnh mở, đóng khác nhau (các lệnh điều khiển)
-  if (msg == "OPEN") {
-    for (int i=0;i<=70;i++)
-    {
-      doorLock.write(i);
-      delay(10);
-    } 
-    isDoorOpen = true; 
-    doorOpenTime = millis();
-    client.publish(topic_st_door, "Đang Mở");
-  } 
-  else if (msg == "CLOSE") {
-    for (int i=0;i<=70;i++)
-    {
-      doorLock.write(70-i);
-      delay(10);
-    }  
-    isDoorOpen = false;
-    client.publish(topic_st_door, "Đang Khóa");
+  if (String(topic) == topic_cmd) {
+    if (msg == "OPEN") {
+        for (int i=0;i<=70;i++)
+        {
+          doorLock.write(i);
+          delay(10);
+        } 
+        isDoorOpen = true; 
+        doorOpenTime = millis();
+        client.publish(topic_st_door, "Đang Mở");
+        // Khi mở cửa bằng nút, cũng có thể hiện câu chào mặc định
+        lcd.clear(); lcd.setCursor(0,0); lcd.print("Welcome Home !");
+      } 
+      else if (msg == "CLOSE") {
+        for (int i=0;i<=70;i++)
+        {
+          doorLock.write(70-i);
+          delay(10);
+        }  
+        isDoorOpen = false;
+        client.publish(topic_st_door, "Đang Khóa");
+        lcd.clear(); lcd.setCursor(0,0); lcd.print("Door Locked");
+      }
+      else if (msg == "BUZZER_ON") {
+        isBuzzerManual = true; tone(BUZZER_PIN, 1000);
+        client.publish(topic_st_buzzer, "Đang Kêu");
+      }
+      else if (msg == "BUZZER_OFF") {
+        isBuzzerManual = false; noTone(BUZZER_PIN); 
+        client.publish(topic_st_buzzer, "Yên Lặng");
+      }
+      else if (msg == "SENSOR_ON") {
+        isSensorActive = true; client.publish(topic_st_sensor, "Đang Bật");
+      }
+      else if (msg == "SENSOR_OFF") {
+        isSensorActive = false; client.publish(topic_st_sensor, "Đã Tắt");
+      }
+      // Cập nhật ngưỡng cài đặt
+      else if (msg.startsWith("SET_TEMP:")) {
+        tempThreshold = msg.substring(9).toInt();
+        Serial.println("New Temp Limit: " + String(tempThreshold));
+      }
+      // --- NHẬN LỆNH CÀI ĐẶT KHOẢNG CÁCH ---
+      else if (msg.startsWith("SET_DIST:")) {
+        distThreshold = msg.substring(9).toInt();
+        Serial.println("New Dist Limit: " + String(distThreshold)); // 
+      }
   }
-  else if (msg == "BUZZER_ON") {
-    isBuzzerManual = true; tone(BUZZER_PIN, 1000);
-    client.publish(topic_st_buzzer, "Đang Kêu");
-  }
-  else if (msg == "BUZZER_OFF") {
-    isBuzzerManual = false; noTone(BUZZER_PIN); 
-    client.publish(topic_st_buzzer, "Yên Lặng");
-  }
-  else if (msg == "SENSOR_ON") {
-    isSensorActive = true; client.publish(topic_st_sensor, "Đang Bật");
-  }
-  else if (msg == "SENSOR_OFF") {
-    isSensorActive = false; client.publish(topic_st_sensor, "Đã Tắt");
-  }
-  // Cập nhật ngưỡng cài đặt
-  else if (msg.startsWith("SET_TEMP:")) {
-    tempThreshold = msg.substring(9).toInt();
-    Serial.println("New Temp Limit: " + String(tempThreshold));
-  }
-  // --- NHẬN LỆNH CÀI ĐẶT KHOẢNG CÁCH ---
-  else if (msg.startsWith("SET_DIST:")) {
-    distThreshold = msg.substring(9).toInt();
-    Serial.println("New Dist Limit: " + String(distThreshold)); // 
-  }
+ 
 }
 
 void reconnect() {
@@ -212,6 +237,7 @@ void loop() {
       float t = dht.readTemperature();
       Serial.println(h); Serial.println(t);
       if (!isnan(t) && !isnan(h)) {
+        // gửi dữ liệu lên sv
         client.publish(topic_temp, String(t, 1).c_str());
         client.publish(topic_hum, String(h, 1).c_str());
         
@@ -219,13 +245,14 @@ void loop() {
         if (isBuzzerManual) {
             tone(BUZZER_PIN, 1000);
         } else if (t > tempThreshold) {
-           tone(BUZZER_PIN, 1000);
+           digitalWrite(BUZZER_PIN, HIGH);
            client.publish(topic_st_buzzer, "Cảnh Báo Nhiệt!");
 
            // Có thể hiển thị cảnh báo lên LCD nếu muốn
            // lcd.setCursor(0,1); lcd.print("WARNING: HOT!"); 
         } else {
            noTone(BUZZER_PIN);
+          digitalWrite(BUZZER_PIN, LOW);
            client.publish(topic_st_buzzer, "Yên Lặng");
         }
       }
