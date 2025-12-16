@@ -1,0 +1,87 @@
+
+// #include <Wire.h>
+// #include <LiquidCrystal_I2C.h>
+
+// // Địa chỉ I2C thường của LCD: 0x27 hoặc 0x3F
+// LiquidCrystal_I2C lcd(0x27, 16, 2);  
+
+// void setup() {
+//   Wire.begin(21, 22);    // SDA = 21, SCL = 22 (chuẩn ESP32)
+  
+//   lcd.init();            // Khởi tạo LCD
+//   lcd.backlight();       // Bật đèn nền
+//   lcd.clear();
+
+//   lcd.setCursor(0, 0);
+//   lcd.print("ESP32 LCD Test");
+  
+//   lcd.setCursor(0, 1);
+//   lcd.print("Hello World!");
+// }
+
+// void loop() {
+//   // Nhấp nháy ký tự để test refresh
+//   lcd.setCursor(15, 1);
+//   lcd.print("*");
+//   delay(500);
+//   lcd.setCursor(15, 1);
+//   lcd.print(" ");
+//   delay(500);
+// }
+
+// #include <DHT.h>
+// #include <DHT_U.h>
+
+// #define DHTPIN 4         // chân kết nối DHT
+// #define DHTTYPE DHT11    // DHT22 hoặc DHT11
+
+//DHT dht(DHTPIN, DHTTYPE);
+// Servo s;
+// void setup() {
+//   Serial.begin(9600);
+//   //dht.begin();
+//   Serial.println("DHT Test ESP32");
+//   s.attach(17);
+// }
+
+// void loop() {
+//   delay(2000);  // Không được đo quá nhanh
+
+//   for (int i = 0; i < 70; i++) {
+//     s.write(i);
+//     delay(5);
+//   }
+//     for (int i = 0; i < 70; i++) {
+//     s.write(70-i);
+//     delay(5);
+//   }}
+// //   delay(30000);
+//   float h = dht.readHumidity();
+//   float t = dht.readTemperature();
+
+//   if (isnan(h) || isnan(t)) {
+//     Serial.println("❌ Loi doc DHT !");
+//     return;
+//   }
+
+//   Serial.print("Nhiet do: ");
+//   Serial.print(t);
+//   Serial.print(" *C   |   ");
+
+//   Serial.print("Do am: ");
+//   Serial.print(h);
+//   Serial.println(" %");
+// }
+
+// DEBUG BUZZER
+// void setup() {
+//   pinMode(BUZZER_PIN, OUTPUT);
+//   digitalWrite(BUZZER_PIN,LOW);
+// }
+
+// void loop() {
+//   digitalWrite(BUZZER_PIN,HIGH);
+//   delay(250);
+//   digitalWrite(BUZZER_PIN,LOW);
+//   delay(30000);
+// }

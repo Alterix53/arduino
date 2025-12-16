@@ -5,8 +5,8 @@
 #include <LiquidCrystal_I2C.h> // <--- Thư viện LCD
 
 // --- 1. CẤU HÌNH WIFI & MQTT ---
-const char* ssid = "Huy Duy";
-const char* password = "Vietnam060512";
+const char* ssid = "Alterix";
+const char* password = "12345679";
 const char* mqtt_server = "broker.hivemq.com";
 
 // --- TOPIC ---
@@ -16,7 +16,7 @@ const char* topic_hum  = "smartdoor/nhom10/humidity";
 const char* topic_st_door   = "smartdoor/nhom10/status/door";
 const char* topic_st_buzzer = "smartdoor/nhom10/status/buzzer";
 const char* topic_st_sensor = "smartdoor/nhom10/status/sensor";
-const char* topic_alert     = "smartdoor/nhom10/alert"; // Topic gửi cảnh báo Pushsafer
+const char* topic_alert     = "smartdoor/nhom10/alert"; // Topic gửi cảnh báo Pushsaferm
 
 // Topic nhận lệnh (Subscribe)
 const char* topic_cmd = "smartdoor/nhom10/cmd"; // Lệnh điều khiển
@@ -26,10 +26,10 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // --- PHẦN CỨNG ---
-#define TRIG_PIN  5 
-#define ECHO_PIN  18 
+#define TRIG_PIN  18
+#define ECHO_PIN  5 
 #define DHT_PIN   15
-#define BUZZER_PIN 4
+#define BUZZER_PIN 25
 #define LED_PIN    2    // <--- Chân đèn cảnh báo mới
 #define DHT_TYPE DHT11
 
@@ -37,6 +37,7 @@ int servoPin = 17;
 
 Servo doorLock;
 DHT dht(DHT_PIN, DHT_TYPE);
+
 
 // --- BIẾN TOÀN CỤC ---
 unsigned long lastMsg = 0;
@@ -46,15 +47,17 @@ bool isDoorOpen = false;
 bool ledState = LOW; // Trạng thái hiện tại của đèn (Tắt/Bật)
 int lastTime = 0;
 unsigned long lastAlertTime = 0; // Biến chống spam tin nhắn Pushsafer
+int distance = 0;//khoảng cách
 
 // Khởi tạo LCD địa chỉ 0x27, 16 cột 2 dòng
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Cấu hình (Mặc định)
-bool isSensorActive = true;     
+bool isSensorActive = false;     
 int tempThreshold = 60; // Ngưỡng nhiệt độ báo động
 int distThreshold = 5; // Ngưỡng khoảng cách báo động (cm)
 bool isBuzzerManual = false; 
+float t = 0;
 
 void setup() {
   // Khởi tạo LCD
@@ -82,7 +85,7 @@ void setup() {
   lastTime = millis();
 
   digitalWrite(BUZZER_PIN, LOW);
-  noTone(BUZZER_PIN); 
+
 }
 
 void setup_wifi() {
@@ -136,7 +139,7 @@ void callback(char* topic, byte* message, unsigned int length) {
         // Khi mở cửa bằng nút, cũng có thể hiện câu chào mặc định
         lcd.clear(); lcd.setCursor(0,0); lcd.print("Welcome Home !");
       } 
-      else if (msg == "CLOSE") {
+      else if (msg == "CLOSE" &&  isDoorOpen) {
         for (int i=0;i<=70;i++)
         {
           doorLock.write(70-i);
@@ -147,11 +150,12 @@ void callback(char* topic, byte* message, unsigned int length) {
         lcd.clear(); lcd.setCursor(0,0); lcd.print("Door Locked");
       }
       else if (msg == "BUZZER_ON") {
-        isBuzzerManual = true; tone(BUZZER_PIN, 1000);
+        isBuzzerManual = true; 
+        Serial.println("buzzer dang bat");
         client.publish(topic_st_buzzer, "Đang Kêu");
       }
       else if (msg == "BUZZER_OFF") {
-        isBuzzerManual = false; noTone(BUZZER_PIN); 
+        isBuzzerManual = false; 
         client.publish(topic_st_buzzer, "Yên Lặng");
       }
       else if (msg == "SENSOR_ON") {
@@ -202,11 +206,17 @@ void loop() {
       delay(10);
     }
     client.publish(topic_st_door, "Đang Khóa (Auto)");
+   
   }
 
   // --- LOGIC ĐỌC CẢM BIẾN & XỬ LÝ LIÊN TỤC ---
   // Đọc siêu âm (Không được dùng delay trong này để đèn còn chớp)
-  int distance = getDistance(TRIG_PIN,ECHO_PIN); Serial.println(distance);
+  int distanceNow = millis();
+  if (distanceNow - lastTime >= 2000) {
+    distance = getDistance(TRIG_PIN,ECHO_PIN); Serial.println(distance);
+    lastTime = distanceNow; 
+  }
+
   // LOGIC ĐÈN CHỚP TẮT (BLINK) KHI CÓ NGƯỜI
   if (distance > 0 && distance < distThreshold) {
 
@@ -220,8 +230,8 @@ void loop() {
       // Chỉ gửi 15 giây/lần để tránh spam điện thoại
       if (millis() - lastAlertTime > 15000) {
           lastAlertTime = millis();
-          String alertMsg = "CANH BAO: Co nguoi la (" + String(distance) + "cm)";
-          client.publish(topic_alert, alertMsg.c_str());
+
+          client.publish(topic_alert, "Co nguoi la");
           Serial.println(">> SENT PUSHSAFER ALERT!");
       }
   } else {
@@ -234,28 +244,28 @@ void loop() {
     lastMsg = now;
     if (isSensorActive) {
       float h = dht.readHumidity();
-      float t = dht.readTemperature();
+      t = dht.readTemperature();
       Serial.println(h); Serial.println(t);
       if (!isnan(t) && !isnan(h)) {
         // gửi dữ liệu lên sv
         client.publish(topic_temp, String(t, 1).c_str());
         client.publish(topic_hum, String(h, 1).c_str());
-        
-        // Buzzer Logic
-        if (isBuzzerManual) {
-            tone(BUZZER_PIN, 1000);
-        } else if (t > tempThreshold) {
-           digitalWrite(BUZZER_PIN, HIGH);
-           client.publish(topic_st_buzzer, "Cảnh Báo Nhiệt!");
-
-           // Có thể hiển thị cảnh báo lên LCD nếu muốn
-           // lcd.setCursor(0,1); lcd.print("WARNING: HOT!"); 
-        } else {
-           noTone(BUZZER_PIN);
-          digitalWrite(BUZZER_PIN, LOW);
-           client.publish(topic_st_buzzer, "Yên Lặng");
-        }
       }
+
+    }
+    // Buzzer Logic
+    // chỉ kêu nếu giá trị nhiệt độ vượt ngưỡng và web đang bật buzzer
+    if ((int)t > tempThreshold && isBuzzerManual == true) {
+      Serial.println("canh bao canh bao");
+      digitalWrite(BUZZER_PIN, HIGH);
+
+      client.publish(topic_st_buzzer, "Cảnh Báo Nhiệt!");
+
+      // Có thể hiển thị cảnh báo lên LCD nếu muốn
+      // lcd.setCursor(0,1); lcd.print("WARNING: HOT!"); 
+    } else {
+      digitalWrite(BUZZER_PIN, LOW);
+      client.publish(topic_st_buzzer, "Yên Lặng");
     }
   }
 }
@@ -268,81 +278,5 @@ int getDistance(int trigPin, int echoPin) {
   int distance = duration * 0.034 / 2;
   return distance;
 }
-
-
-// #include <Wire.h>
-// #include <LiquidCrystal_I2C.h>
-
-// // Địa chỉ I2C thường của LCD: 0x27 hoặc 0x3F
-// LiquidCrystal_I2C lcd(0x27, 16, 2);  
-
-// void setup() {
-//   Wire.begin(21, 22);    // SDA = 21, SCL = 22 (chuẩn ESP32)
-  
-//   lcd.init();            // Khởi tạo LCD
-//   lcd.backlight();       // Bật đèn nền
-//   lcd.clear();
-
-//   lcd.setCursor(0, 0);
-//   lcd.print("ESP32 LCD Test");
-  
-//   lcd.setCursor(0, 1);
-//   lcd.print("Hello World!");
-// }
-
-// void loop() {
-//   // Nhấp nháy ký tự để test refresh
-//   lcd.setCursor(15, 1);
-//   lcd.print("*");
-//   delay(500);
-//   lcd.setCursor(15, 1);
-//   lcd.print(" ");
-//   delay(500);
-// }
-
-// #include <DHT.h>
-// #include <DHT_U.h>
-
-// #define DHTPIN 4         // chân kết nối DHT
-// #define DHTTYPE DHT11    // DHT22 hoặc DHT11
-
-//DHT dht(DHTPIN, DHTTYPE);
-// Servo s;
-// void setup() {
-//   Serial.begin(9600);
-//   //dht.begin();
-//   Serial.println("DHT Test ESP32");
-//   s.attach(17);
-// }
-
-// void loop() {
-//   delay(2000);  // Không được đo quá nhanh
-
-//   for (int i = 0; i < 70; i++) {
-//     s.write(i);
-//     delay(5);
-//   }
-//     for (int i = 0; i < 70; i++) {
-//     s.write(70-i);
-//     delay(5);
-//   }}
-// //   delay(30000);
-//   float h = dht.readHumidity();
-//   float t = dht.readTemperature();
-
-//   if (isnan(h) || isnan(t)) {
-//     Serial.println("❌ Loi doc DHT !");
-//     return;
-//   }
-
-//   Serial.print("Nhiet do: ");
-//   Serial.print(t);
-//   Serial.print(" *C   |   ");
-
-//   Serial.print("Do am: ");
-//   Serial.print(h);
-//   Serial.println(" %");
-// }
-
 
 
